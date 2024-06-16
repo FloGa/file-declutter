@@ -49,7 +49,7 @@ impl FileDeclutter {
     pub fn declutter_files(&self) -> anyhow::Result<()> {
         for (source, target) in self.create_iter() {
             std::fs::create_dir_all(&target.parent().unwrap())?;
-            std::fs::rename(source, target)?
+            std::fs::rename(source, target)?;
         }
 
         if self.remove_empty_directories {
@@ -87,9 +87,16 @@ mod tests {
 
         let mut rng = rand::thread_rng();
         for _ in 0..100 {
-            temp_dir
-                .child(rng.gen_range(1e9..1e10).to_string())
-                .touch()?;
+            let mut file_name = rng
+                .gen_range(1_000_000_000u64..10_000_000_000u64)
+                .to_string();
+
+            if rng.gen_bool(0.25) {
+                file_name = format!("subdir/{file_name}");
+            }
+
+            let child = temp_dir.child(file_name);
+            child.touch()?;
         }
 
         for (source, target) in FileDeclutter::new(temp_dir.to_path_buf())
