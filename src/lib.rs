@@ -1,59 +1,25 @@
 use std::path::PathBuf;
 
-#[derive(Default)]
-pub struct FileDeclutter {
-    source_path: PathBuf,
+pub struct FileDeclutterIterator<I> {
+    inner: I,
+    base: PathBuf,
     levels: usize,
-    remove_empty_directories: bool,
 }
 
-impl FileDeclutter {
-    pub fn new(source_path: impl Into<PathBuf>) -> Self {
-        let source_path = source_path.into();
-        Self {
-            source_path,
-            ..Default::default()
-        }
-    }
+impl<I> FileDeclutterIterator<I>
+where
+    I: Iterator<Item = PathBuf>,
+{
+    pub fn declutter_files(self, remove_empty_directories: bool) -> anyhow::Result<()> {
+        let base = self.base.clone();
 
-    pub fn levels(mut self, levels: usize) -> Self {
-        self.levels = levels;
-        self
-    }
-
-    pub fn remove_empty_directories(mut self, remove_empty_directories: bool) -> Self {
-        self.remove_empty_directories = remove_empty_directories;
-        self
-    }
-
-    pub fn create_iter(&self) -> impl Iterator<Item = (PathBuf, PathBuf)> + '_ {
-        walkdir::WalkDir::new(&self.source_path)
-            .min_depth(1)
-            .into_iter()
-            .flatten()
-            .filter(|f| f.file_type().is_file())
-            .map(|entry| {
-                let sub_dirs = entry.file_name().to_string_lossy();
-                let sub_dirs = sub_dirs.chars().take(self.levels).map(String::from);
-
-                let mut target_path = self.source_path.clone();
-                for sub_dir in sub_dirs {
-                    target_path.push(sub_dir);
-                }
-                target_path.push(entry.file_name());
-
-                (entry.into_path(), target_path)
-            })
-    }
-
-    pub fn declutter_files(&self) -> anyhow::Result<()> {
-        for (source, target) in self.create_iter() {
+        for (source, target) in self {
             std::fs::create_dir_all(&target.parent().unwrap())?;
             std::fs::rename(source, target)?;
         }
 
-        if self.remove_empty_directories {
-            for dir in walkdir::WalkDir::new(&self.source_path)
+        if remove_empty_directories {
+            for dir in walkdir::WalkDir::new(base)
                 .min_depth(1)
                 .contents_first(true)
                 .into_iter()
@@ -73,6 +39,60 @@ impl FileDeclutter {
     }
 }
 
+impl<I> Iterator for FileDeclutterIterator<I>
+where
+    I: Iterator<Item = PathBuf>,
+{
+    type Item = (PathBuf, PathBuf);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(move |entry| {
+            let sub_dirs = entry.file_name().unwrap().to_string_lossy();
+            let sub_dirs = sub_dirs.chars().take(self.levels).map(String::from);
+
+            let mut target_path = self.base.clone();
+            for sub_dir in sub_dirs {
+                target_path.push(sub_dir);
+            }
+            target_path.push(entry.file_name().unwrap());
+
+            (entry, target_path)
+        })
+    }
+}
+
+pub struct FileDeclutter;
+
+impl FileDeclutter {
+    pub fn new_from_iter(
+        base: impl Into<PathBuf>,
+        iter: impl Iterator<Item = PathBuf>,
+        levels: usize,
+    ) -> FileDeclutterIterator<impl Iterator<Item = PathBuf>> {
+        FileDeclutterIterator {
+            inner: iter,
+            base: base.into(),
+            levels,
+        }
+    }
+
+    pub fn new_from_path(
+        base: impl Into<PathBuf>,
+        levels: usize,
+    ) -> FileDeclutterIterator<impl Iterator<Item = PathBuf>> {
+        let base = base.into();
+
+        let iter = walkdir::WalkDir::new(&base)
+            .min_depth(1)
+            .into_iter()
+            .flatten()
+            .filter(|f| f.file_type().is_file())
+            .map(|entry| entry.into_path());
+
+        FileDeclutter::new_from_iter(base, iter, levels)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use assert_fs::prelude::*;
@@ -82,7 +102,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn decluttered_file_names_same() -> anyhow::Result<()> {
+    fn decluttered_from_path_file_names_same() -> anyhow::Result<()> {
         let temp_dir = TempDir::new()?;
 
         let mut rng = rand::thread_rng();
@@ -99,10 +119,31 @@ mod tests {
             child.touch()?;
         }
 
-        for (source, target) in FileDeclutter::new(temp_dir.to_path_buf())
-            .levels(1)
-            .create_iter()
-        {
+        for (source, target) in FileDeclutter::new_from_path(temp_dir.to_path_buf(), 1) {
+            assert_ne!(source.parent(), target.parent());
+            assert_eq!(source.file_name(), target.file_name());
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn decluttered_from_iter_file_names_same() -> anyhow::Result<()> {
+        let mut rng = rand::thread_rng();
+        let files = (0..100).map(move |_| {
+            let mut file_name = rng
+                .gen_range(1_000_000_000u64..10_000_000_000u64)
+                .to_string();
+
+            if rng.gen_bool(0.25) {
+                file_name = format!("subdir/{file_name}");
+            }
+
+            PathBuf::from(file_name)
+        });
+
+        for (source, target) in FileDeclutter::new_from_iter(PathBuf::new(), files, 1) {
+            assert_ne!(source.parent(), target.parent());
             assert_eq!(source.file_name(), target.file_name());
         }
 

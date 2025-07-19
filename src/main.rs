@@ -21,10 +21,8 @@ struct Cli {
 fn main() -> Result<()> {
     let args = Cli::parse();
 
-    file_declutter::FileDeclutter::new(args.path)
-        .levels(args.levels)
-        .remove_empty_directories(args.remove_empty_directories)
-        .declutter_files()?;
+    file_declutter::FileDeclutter::new_from_path(args.path, args.levels)
+        .declutter_files(args.remove_empty_directories)?;
 
     Ok(())
 }
