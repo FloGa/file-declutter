@@ -10,6 +10,16 @@ impl<I> FileDeclutterIterator<I>
 where
     I: Iterator<Item = PathBuf>,
 {
+    pub fn base<P: Into<PathBuf>>(mut self, base: P) -> Self {
+        self.base = base.into();
+        self
+    }
+
+    pub fn levels(mut self, levels: usize) -> Self {
+        self.levels = levels;
+        self
+    }
+
     pub fn declutter_files(self, remove_empty_directories: bool) -> anyhow::Result<()> {
         let base = self.base.clone();
 
@@ -65,20 +75,17 @@ pub struct FileDeclutter;
 
 impl FileDeclutter {
     pub fn new_from_iter(
-        base: impl Into<PathBuf>,
         iter: impl Iterator<Item = PathBuf>,
-        levels: usize,
     ) -> FileDeclutterIterator<impl Iterator<Item = PathBuf>> {
         FileDeclutterIterator {
             inner: iter,
-            base: base.into(),
-            levels,
+            base: Default::default(),
+            levels: Default::default(),
         }
     }
 
     pub fn new_from_path(
         base: impl Into<PathBuf>,
-        levels: usize,
     ) -> FileDeclutterIterator<impl Iterator<Item = PathBuf>> {
         let base = base.into();
 
@@ -89,7 +96,7 @@ impl FileDeclutter {
             .filter(|f| f.file_type().is_file())
             .map(|entry| entry.into_path());
 
-        FileDeclutter::new_from_iter(base, iter, levels)
+        FileDeclutter::new_from_iter(iter).base(base)
     }
 }
 
@@ -119,7 +126,7 @@ mod tests {
             child.touch()?;
         }
 
-        for (source, target) in FileDeclutter::new_from_path(temp_dir.to_path_buf(), 1) {
+        for (source, target) in FileDeclutter::new_from_path(temp_dir.to_path_buf()).levels(1) {
             assert_ne!(source.parent(), target.parent());
             assert_eq!(source.file_name(), target.file_name());
         }
@@ -142,7 +149,7 @@ mod tests {
             PathBuf::from(file_name)
         });
 
-        for (source, target) in FileDeclutter::new_from_iter(PathBuf::new(), files, 1) {
+        for (source, target) in FileDeclutter::new_from_iter(files).levels(1) {
             assert_ne!(source.parent(), target.parent());
             assert_eq!(source.file_name(), target.file_name());
         }
