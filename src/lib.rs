@@ -98,6 +98,15 @@ impl FileDeclutter {
 
         FileDeclutter::new_from_iter(iter).base(base)
     }
+
+    pub fn oneshot(file: impl Into<PathBuf>, levels: usize) -> PathBuf {
+        let iter = std::iter::once(file.into());
+        FileDeclutter::new_from_iter(iter)
+            .levels(levels)
+            .next()
+            .unwrap()
+            .1
+    }
 }
 
 #[cfg(test)]
@@ -153,6 +162,18 @@ mod tests {
             assert_ne!(source.parent(), target.parent());
             assert_eq!(source.file_name(), target.file_name());
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn oneshot() -> anyhow::Result<()> {
+        let source = PathBuf::from("123456");
+        let target_expected = PathBuf::from("1/2/3/123456");
+
+        let target_actual = FileDeclutter::oneshot(&source, 3);
+
+        assert_eq!(target_actual, target_expected);
 
         Ok(())
     }
