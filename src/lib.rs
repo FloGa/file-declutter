@@ -121,13 +121,13 @@ mod tests {
     fn decluttered_from_path_file_names_same() -> anyhow::Result<()> {
         let temp_dir = TempDir::new()?;
 
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..100 {
             let mut file_name = rng
-                .gen_range(1_000_000_000u64..10_000_000_000u64)
+                .random_range(1_000_000_000u64..10_000_000_000u64)
                 .to_string();
 
-            if rng.gen_bool(0.25) {
+            if rng.random_bool(0.25) {
                 file_name = format!("subdir/{file_name}");
             }
 
@@ -145,13 +145,13 @@ mod tests {
 
     #[test]
     fn decluttered_from_iter_file_names_same() -> anyhow::Result<()> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let files = (0..100).map(move |_| {
             let mut file_name = rng
-                .gen_range(1_000_000_000u64..10_000_000_000u64)
+                .random_range(1_000_000_000u64..10_000_000_000u64)
                 .to_string();
 
-            if rng.gen_bool(0.25) {
+            if rng.random_bool(0.25) {
                 file_name = format!("subdir/{file_name}");
             }
 
