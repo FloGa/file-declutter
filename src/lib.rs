@@ -111,8 +111,8 @@ impl FileDeclutter {
 
 #[cfg(test)]
 mod tests {
-    use assert_fs::prelude::*;
     use assert_fs::TempDir;
+    use assert_fs::prelude::*;
     use rand::Rng;
 
     use super::*;
