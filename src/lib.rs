@@ -75,10 +75,10 @@ pub struct FileDeclutter;
 
 impl FileDeclutter {
     pub fn new_from_iter(
-        iter: impl Iterator<Item = PathBuf>,
+        iter: impl Iterator<Item = impl Into<PathBuf>>,
     ) -> FileDeclutterIterator<impl Iterator<Item = PathBuf>> {
         FileDeclutterIterator {
-            inner: iter,
+            inner: iter.map(Into::into),
             base: Default::default(),
             levels: Default::default(),
         }
@@ -155,7 +155,7 @@ mod tests {
                 file_name = format!("subdir/{file_name}");
             }
 
-            PathBuf::from(file_name)
+            file_name
         });
 
         for (source, target) in FileDeclutter::new_from_iter(files).levels(1) {
