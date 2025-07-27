@@ -1,26 +1,24 @@
 [package]
 name = "file-declutter"
-version = "0.1.0-SNAPSHOT"
-edition = "2021"
+version = "0.1.0"
+edition = "2024"
 
 authors = ["Florian Gamböck <mail@floga.de>"]
-description = "Unconventional deduping method."
-repository = "https://github.com/FloGa/crazy-deduper.git"
+description = "Reorganizes files into nested folders based on their filenames."
+repository = "https://github.com/FloGa/file-declutter"
 readme = "README.md"
-categories = []
-keywords = []
+categories = ["command-line-utilities", "filesystem"]
+keywords = ["cli", "file", "utility"]
 license = "MIT"
 
 [dependencies]
 anyhow = "1.0.75"
 clap = { version = "4.4.8", features = ["derive"] }
-thiserror = "1.0.50"
 walkdir = "2.4.0"
 
 [dev-dependencies]
 assert_cmd = "2.0.12"
 assert_fs = "1.0.13"
-dir-diff = "0.3.2"
 lazy_static = "1.4.0"
 predicates = "3.0.4"
-rand = "0.8.5"
+rand = "0.9.2"
