@@ -74,6 +74,16 @@ releases][gh-releases] page.
 <!--% !cargo --quiet run -- --help | tail -n+3 %-->
 
 ```text
+Usage: file-declutter [OPTIONS] <PATH>
+
+Arguments:
+  <PATH>  Directory to declutter
+
+Options:
+  -l, --levels <LEVELS>           Number of nested subdirectory levels [default: 3]
+  -r, --remove-empty-directories  Remove empty directories after moving files
+  -h, --help                      Print help
+  -V, --version                   Print version
 ```
 
 To declutter a directory into three levels, you would go with:
