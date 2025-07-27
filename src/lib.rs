@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+/// An iterator that transforms a list of file paths into (source, target) pairs, where the target
+/// path is a decluttered version based on the filename's characters.
 pub struct FileDeclutterIterator<I> {
     inner: I,
     base: PathBuf,
@@ -10,16 +12,29 @@ impl<I> FileDeclutterIterator<I>
 where
     I: Iterator<Item = PathBuf>,
 {
+    /// Sets the base directory into which files will be moved.
     pub fn base<P: Into<PathBuf>>(mut self, base: P) -> Self {
         self.base = base.into();
         self
     }
 
+    /// Sets the number of directory levels to create based on the filename.
+    ///
+    /// For example, with `levels = 2` and a file named `abcdef.txt`, the target path would include
+    /// two subdirectories: `a/b/abcdef.txt`.
     pub fn levels(mut self, levels: usize) -> Self {
         self.levels = levels;
         self
     }
 
+    /// Moves all files to their decluttered target paths.
+    ///
+    /// If `remove_empty_directories` is `true`, the function will attempt to remove any now-empty
+    /// directories after the move operation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if directory creation or file renaming fails.
     pub fn declutter_files(self, remove_empty_directories: bool) -> anyhow::Result<()> {
         let base = self.base.clone();
 
@@ -39,7 +54,7 @@ where
                 let dir = dir.into_path();
 
                 if dir.read_dir()?.count() == 0 {
-                    // Ignore result, we don't care if we actually deleted something here.
+                    // Ignore result, it doesn't matter if deletion fails.
                     let _ = std::fs::remove_dir(dir);
                 }
             }
@@ -55,6 +70,10 @@ where
 {
     type Item = (PathBuf, PathBuf);
 
+    /// Returns the next `(source, target)` file path pair.
+    ///
+    /// The target path is derived from the file name by taking the first `levels` characters and
+    /// using them as nested directories.
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(move |entry| {
             let sub_dirs = entry.file_name().unwrap().to_string_lossy();
@@ -71,9 +90,28 @@ where
     }
 }
 
+/// Entry point for creating decluttering iterators or computing decluttered paths.
 pub struct FileDeclutter;
 
 impl FileDeclutter {
+    /// Creates a `FileDeclutterIterator` from an arbitrary iterator over file paths.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use std::path::PathBuf;
+    /// let files = vec!["13.txt", "23.txt"];
+    /// let files_decluttered = file_declutter::FileDeclutter::new_from_iter(files.into_iter())
+    ///     .levels(1)
+    ///     .collect::<Vec<_>>();
+    ///
+    /// let files_expected = vec![
+    ///     (PathBuf::from("13.txt"), PathBuf::from("1/13.txt")),
+    ///     (PathBuf::from("23.txt"), PathBuf::from("2/23.txt")),
+    /// ];
+    ///
+    /// assert_eq!(files_expected, files_decluttered);
+    /// ```
     pub fn new_from_iter(
         iter: impl Iterator<Item = impl Into<PathBuf>>,
     ) -> FileDeclutterIterator<impl Iterator<Item = PathBuf>> {
@@ -84,6 +122,26 @@ impl FileDeclutter {
         }
     }
 
+    /// Creates a `FileDeclutterIterator` by recursively collecting all files under a given
+    /// directory and setting this directory as the base.
+    ///
+    /// # Examples
+    ///
+    /// ```rust no_run
+    /// # use std::path::PathBuf;
+    /// let files_decluttered = file_declutter::FileDeclutter::new_from_path("/tmp/path")
+    ///     .levels(1)
+    ///     .collect::<Vec<_>>();
+    ///
+    /// // If the specified directory contains the files 13.txt and 23.txt, the following tuples
+    /// // will be produced:
+    /// let files_expected = vec![
+    ///     (PathBuf::from("13.txt"), PathBuf::from("1/13.txt")),
+    ///     (PathBuf::from("23.txt"), PathBuf::from("2/23.txt")),
+    /// ];
+    ///
+    /// assert_eq!(files_expected, files_decluttered);
+    /// ```
     pub fn new_from_path(
         base: impl Into<PathBuf>,
     ) -> FileDeclutterIterator<impl Iterator<Item = PathBuf>> {
@@ -99,6 +157,28 @@ impl FileDeclutter {
         FileDeclutter::new_from_iter(iter).base(base)
     }
 
+    /// Computes the decluttered path of a single file without moving it.
+    ///
+    /// # Arguments
+    ///
+    /// - `file`: Path to the input file.
+    /// - `levels`: Number of subdirectory levels to use.
+    ///
+    /// # Returns
+    ///
+    /// A `PathBuf` representing the target decluttered location.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use std::path::PathBuf;
+    /// let file = "123456.txt";
+    /// let file_decluttered = file_declutter::FileDeclutter::oneshot(file, 3);
+    ///
+    /// let file_expected = PathBuf::from("1/2/3/123456.txt");
+    ///
+    /// assert_eq!(file_expected, file_decluttered);
+    /// ```
     pub fn oneshot(file: impl Into<PathBuf>, levels: usize) -> PathBuf {
         let iter = std::iter::once(file.into());
         FileDeclutter::new_from_iter(iter)
