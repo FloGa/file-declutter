@@ -1,4 +1,4 @@
-# Changes in 0.1.1-RC
+# Changes in 0.1.1
 
 -   Upgrade rand to 0.10.1
 
